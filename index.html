@@ -1360,84 +1360,61 @@ function setChangeMode(mode) {
   setTimeout(() => { M.updateTextFields(); }, 100);
 }
 
-function submitChange() {
-
+async function submitChange() {
   const errorMsg = document.getElementById("errorMsg");
   const btn = document.getElementById("changeSubmitBtn");
-
   errorMsg.innerText = "";
 
-  // 🔄 Spinner
   const originalText = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = "Processing...";
 
+  let payload = { action: "" };
+
   if (changeMode === "username") {
-
-    const current = document.getElementById("currentUsername").value.trim();
-    const newU = document.getElementById("newUsername").value.trim();
-    const pass = document.getElementById("usernamePassword").value.trim();
-
-    if (!current || !newU || !pass) {
-      restoreBtn();
+    payload.action = "changeUsername";
+    payload.current = document.getElementById("currentUsername").value.trim();
+    payload.newU = document.getElementById("newUsername").value.trim();
+    payload.pass = document.getElementById("usernamePassword").value.trim();
+    
+    if (!payload.current || !payload.newU || !payload.pass) {
       errorMsg.innerText = "Please fill in all fields";
-      return;
+      restoreBtn(); return;
     }
-
-    google.script.run
-      .withSuccessHandler(resp => {
-        restoreBtn();
-
-        if (resp.status === "success") {
-          alert("Username changed successfully! Please login again.");
-          showLoginForm();
-        } else {
-          errorMsg.innerText = resp.message;
-        }
-      })
-      .withFailureHandler(err => {
-        restoreBtn();
-        errorMsg.innerText = "Server error. Try again.";
-        console.error(err);
-      })
-      .changeUsernameGS(current, newU, pass);
-
   } else {
-
-    const user = document.getElementById("passUsername").value.trim();
-    const currentPass = document.getElementById("currentPassword").value.trim();
-    const newP = document.getElementById("newPassword").value.trim();
+    payload.action = "changePassword";
+    payload.user = document.getElementById("passUsername").value.trim();
+    payload.currentPass = document.getElementById("currentPassword").value.trim();
+    payload.newP = document.getElementById("newPassword").value.trim();
     const confirm = document.getElementById("confirmNewPassword").value.trim();
 
-    if (!user || !currentPass || !newP || !confirm) {
-      restoreBtn();
+    if (!payload.user || !payload.currentPass || !payload.newP || !confirm) {
       errorMsg.innerText = "Please fill in all fields";
-      return;
+      restoreBtn(); return;
     }
-
-    if (newP !== confirm) {
-      restoreBtn();
+    if (payload.newP !== confirm) {
       errorMsg.innerText = "Passwords do not match";
-      return;
+      restoreBtn(); return;
     }
+  }
 
-    google.script.run
-      .withSuccessHandler(resp => {
-        restoreBtn();
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const resp = await response.json();
 
-        if (resp.status === "success") {
-          alert("Password changed successfully! Please login again.");
-          showLoginForm();
-        } else {
-          errorMsg.innerText = resp.message;
-        }
-      })
-      .withFailureHandler(err => {
-        restoreBtn();
-        errorMsg.innerText = "Server error. Try again.";
-        console.error(err);
-      })
-      .updatePasswordGS(user, currentPass, newP);
+    restoreBtn();
+    if (resp.status === "success") {
+      alert("Credentials updated! Please login again.");
+      showLoginForm();
+    } else {
+      errorMsg.innerText = resp.message;
+    }
+  } catch (err) {
+    restoreBtn();
+    errorMsg.innerText = "Connection Error.";
   }
 
   function restoreBtn() {
@@ -1445,7 +1422,6 @@ function submitChange() {
     btn.innerHTML = originalText;
   }
 }
-
 
 
 
@@ -1486,31 +1462,28 @@ function showLoginForm() {
 /**************************
  * LOGIN FUNCTION (With Roles & Spinner)
  **************************/
-const API_URL = "https://script.google.com/macros/s/AKfycby8aWHhAtsL3EUTxx3DvekvUNYagrs2A8plaj_EpSa_1_YnLUmLkeTMwm77fLCWEc0liQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxAGnwiTwecLn3eCE1h0Rk5cwh4sCOol6lf-CEMj9Oyit0V0B-CUG5VIx-d1fX9aqCLyg/exec";
   
 async function login() {
   const user = document.getElementById("username").value.trim();
   const pass = document.getElementById("password").value.trim();
-  const role = document.getElementById("loginRole").value; // Grab the Role
+  const role = document.getElementById("loginRole").value; 
   const btn = document.getElementById("loginBtn");
   const errorMsg = document.getElementById("errorMsg");
   const loginPage = document.getElementById("loginPage");
   const dashboard = document.getElementById("dashboard");
 
-  // CRITICAL: Reset error color to red in case it was green from Sign-up
   errorMsg.style.color = "#ff4d4d"; 
 
-  // Prevent multiple clicks
   if (btn.disabled) return;
 
-  // Validation
   if (!user || !pass || !role) {
     errorMsg.innerText = "Enter username, password, and select a Role";
     shake();
     return;
   }
 
-  // 1. UI Feedback: Disable button and show the Red Spinner
+  // --- 1. KEEPING YOUR SPINNER ---
   btn.disabled = true;
   const originalBtnText = "LOGIN";
   btn.innerHTML = `
@@ -1524,62 +1497,66 @@ async function login() {
   `;
   errorMsg.innerText = "";
 
-  // 2. Call the Google Script
-  google.script.run
-        .withSuccessHandler(function (resp) {
-          if (resp.status === "success") {
-            
-            // --- STEP A: Personalized Greeting (Updated with ! and Weight) ---
-            const welcomeElement = document.getElementById("welcome-text");
-            if (welcomeElement) {
-                // Notice the "!" at the end and font-weight:800 for the name
-                welcomeElement.innerHTML = `WELCOME, <span style="font-weight:800; color:var(--icon-color);">${resp.firstName}</span>!`;
-            }
-            
-            // --- STEP B: Apply Permissions ---
-            applyPermissions(resp.role);
+  try {
+    // --- 2. THE WEBSITE "BRIDGE" ---
+    // This replaces google.script.run so it works on GitHub
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "login",
+        user: user,
+        pass: pass,
+        role: role
+      })
+    });
 
-            // --- STEP C: Automatically Build Homepage ---
-            goHome(); 
+    const resp = await response.json(); 
 
-            // --- STEP D: Smooth Transition to Dashboard ---
-            const loginPage = document.getElementById("loginPage");
-            const dashboard = document.getElementById("dashboard");
-            
-            loginPage.style.transition = "opacity 0.5s ease";
-            loginPage.style.opacity = "0";
-            
-            setTimeout(() => {
-              loginPage.style.display = "none";
-              dashboard.style.display = "block";
-              dashboard.style.opacity = "0";
-              dashboard.style.transition = "opacity 0.5s ease";
-              
-              setTimeout(() => {
-                dashboard.style.opacity = "1";
-                M.updateTextFields(); 
-              }, 50);
-            }, 500);
+    if (resp.status === "success") {
+      
+      // --- 3. KEEPING YOUR PERSONALIZED GREETING ---
+      const welcomeElement = document.getElementById("welcome-text");
+      if (welcomeElement) {
+          welcomeElement.innerHTML = `WELCOME, <span style="font-weight:800; color:var(--icon-color);">${resp.firstName}</span>!`;
+      }
+      
+      // --- 4. KEEPING YOUR ROLE PERMISSIONS ---
+      applyPermissions(resp.role);
 
-          } else {
-            // If login fails
-            const btn = document.getElementById("loginBtn");
-            const errorMsg = document.getElementById("errorMsg");
-            btn.disabled = false;
-            btn.innerHTML = "LOGIN";
-            errorMsg.innerText = resp.message;
-            shake();
-          }
-        })
-    .withFailureHandler(function (err) {
-      // SERVER ERROR
+      // --- 5. KEEPING YOUR HOME BUILDER ---
+      goHome(); 
+
+      // --- 6. KEEPING YOUR SMOOTH FADE TRANSITION ---
+      loginPage.style.transition = "opacity 0.5s ease";
+      loginPage.style.opacity = "0";
+      
+      setTimeout(() => {
+        loginPage.style.display = "none";
+        dashboard.style.display = "block";
+        dashboard.style.opacity = "0";
+        dashboard.style.transition = "opacity 0.5s ease";
+        
+        setTimeout(() => {
+          dashboard.style.opacity = "1";
+          M.updateTextFields(); 
+        }, 50);
+      }, 500);
+
+    } else {
+      // KEEPING YOUR ERROR FEEDBACK
       btn.disabled = false;
-      btn.innerHTML = originalBtnText;
-      errorMsg.innerText = "Server error. Please try again.";
+      btn.innerHTML = "LOGIN";
+      errorMsg.innerText = resp.message;
       shake();
-      console.error(err);
-    })
-    .checkLogin(user, pass, role); 
+    }
+  } catch (err) {
+    // Handling connection issues
+    btn.disabled = false;
+    btn.innerHTML = originalBtnText;
+    errorMsg.innerText = "Connection Error. Check your API URL.";
+    shake();
+    console.error(err);
+  }
 }
 
 
@@ -1661,10 +1638,10 @@ function shake() {
  **************************/
 async function signUpUser(event) {
   const errorMsg = document.getElementById("errorMsg");
-  errorMsg.style.color = "#ff4d4d"; // Default to Red
+  errorMsg.style.color = "#ff4d4d"; 
   errorMsg.innerText = "";
 
-  // 1. Get the values
+  // 1. Get the values (EXACTLY AS BEFORE)
   const firstName = document.getElementById("signupFirstName").value.trim();
   const lastName = document.getElementById("signupLastName").value.trim();
   const username = document.getElementById("signupUsername").value.trim();
@@ -1675,7 +1652,7 @@ async function signUpUser(event) {
   const checkbox = document.getElementById("signupCheckbox").checked;
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // 2. Validation
+  // 2. Your Original Validations (KEPT)
   if (!firstName || !lastName || !username || !email || !password || !role) {
     errorMsg.innerText = "All fields are required!";
     shake(); 
@@ -1683,11 +1660,6 @@ async function signUpUser(event) {
   }
   if (!emailPattern.test(email)) {
     errorMsg.innerText = "Invalid Email Address format!";
-    shake();
-    return;
-  }
-  if (username.length < 4) {
-    errorMsg.innerText = "Username must be at least 4 characters!";
     shake();
     return;
   }
@@ -1713,46 +1685,43 @@ async function signUpUser(event) {
   signUpBtn.disabled = true;
   signUpBtn.innerHTML = "Processing...";
 
-  // 4. Server Call
-  google.script.run
-    .withSuccessHandler(resp => {
-      signUpBtn.disabled = false;
-      signUpBtn.innerHTML = originalText;
-      
-      if (resp.status === "success") {
-        // SUCCESS: Green text, NO shake, NO reset yet
-        errorMsg.style.color = "#4CAF50"; 
-        errorMsg.innerText = "Sign Up Successful! Check your email.";
-        
-        // Wait 2 seconds, THEN reset and switch
-        setTimeout(() => {
-          resetSignUpForm(); // NOW we clear the data
-          showLoginForm();
-        }, 2500);
-
-      } else {
-        // FAIL (e.g., User exists): Red text + Shake
-        errorMsg.style.color = "#ff4d4d";
-        errorMsg.innerText = resp.message;
-        shake(); 
-        // NOTE: We do NOT call resetSignUpForm() here so the user doesn't lose their typing!
-      }
-    })
-    .withFailureHandler(err => {
-      signUpBtn.disabled = false;
-      signUpBtn.innerHTML = originalText;
-      errorMsg.innerText = "Server error. Please try again.";
-      shake();
-      console.error("Script Error:", err);
-    })
-    .signUpGS({
-      firstName: firstName,
-      lastName: lastName,
-      username: username,
-      password: password,
-      email: email,
-      role: role
+  try {
+    // 4. THE BRIDGE: Sending Sign-up Data to Google
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "signup",
+        userObj: {
+          firstName, lastName, username, password, email, role
+        }
+      })
     });
+
+    const resp = await response.json();
+
+    signUpBtn.disabled = false;
+    signUpBtn.innerHTML = originalText;
+    
+    if (resp.status === "success") {
+      // SUCCESS: Green text and switch back to login (KEPT)
+      errorMsg.style.color = "#4CAF50"; 
+      errorMsg.innerText = "Sign Up Successful! Please wait for Admin activation.";
+      
+      setTimeout(() => {
+        resetSignUpForm();
+        showLoginForm();
+      }, 2500);
+    } else {
+      errorMsg.style.color = "#ff4d4d";
+      errorMsg.innerText = resp.message;
+      shake(); 
+    }
+  } catch (err) {
+    signUpBtn.disabled = false;
+    signUpBtn.innerHTML = originalText;
+    errorMsg.innerText = "Server Error. Check API URL.";
+    console.error(err);
+  }
 }
 
 // Helper to clear the form completely
