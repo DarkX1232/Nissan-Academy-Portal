@@ -1486,6 +1486,8 @@ function showLoginForm() {
 /**************************
  * LOGIN FUNCTION (With Roles & Spinner)
  **************************/
+const API_URL = "https://script.google.com/macros/s/AKfycbyIrZpJyEpp0bxnBDHcC8wCsV4QFnFFYpc3IsZOe4RDNU3KrYdDIFh2SDPFXs3d4xz6cA/exec";
+  
 async function login() {
   const user = document.getElementById("username").value.trim();
   const pass = document.getElementById("password").value.trim();
@@ -1657,7 +1659,7 @@ function shake() {
 /**************************
  * SIGN UP FUNCTION (Polished)
  **************************/
-function signUpUser(event) {
+async function signUpUser(event) {
   const errorMsg = document.getElementById("errorMsg");
   errorMsg.style.color = "#ff4d4d"; // Default to Red
   errorMsg.innerText = "";
